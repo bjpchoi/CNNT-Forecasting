@@ -6,7 +6,7 @@ from sklearn.linear_model import LinearRegression
 import numpy as np
 
 # =========================
-# Model Definitions
+# Model starter code; fine-tuned as needed.
 # =========================
 
 class RNNModel(nn.Module):
