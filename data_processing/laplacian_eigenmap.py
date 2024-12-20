@@ -10,14 +10,15 @@ from scipy.sparse.csgraph import connected_components
 class Graph:
     def __init__(self, n_neighbors=10, mode='simple', similarity_threshold=0.5):
         """
-        Initializes the Graph for Laplacian Eigenmap.
+        Initializes the Graph for Laplacian Eigenmap. A generalized implementation designed
+        to be flexible for downstream models/modifications.
 
         Args:
             n_neighbors (int): Number of neighbors for k-NN graph.
             mode (str): 'simple' or 'complex' graph construction.
             similarity_threshold (float): Threshold for similarity in 'complex' mode.
         """
-        assert mode in ['simple', 'complex'], "Mode must be 'simple' or 'complex'"
+        assert mode in ['simple', 'complex'], "unsupported mode"
         self.n_neighbors = n_neighbors
         self.mode = mode
         self.similarity_threshold = similarity_threshold
@@ -25,7 +26,7 @@ class Graph:
 
     def construct_knn_graph(self, data):
         """
-        Constructs a k-NN graph based on Euclidean distance.
+        Constructs a k-NN graph to approximate data topology/connectivity.
 
         Args:
             data (np.ndarray): Input data matrix (samples x features).
@@ -45,7 +46,8 @@ class Graph:
 
     def construct_complex_graph(self, data):
         """
-        Constructs a complex graph based on cosine similarity and thresholding.
+        Constructs a graph based on cosine similarity and thresholding.
+        Can be modified as needed.
 
         Args:
             data (np.ndarray): Input data matrix (samples x features).
@@ -53,7 +55,7 @@ class Graph:
         Returns:
             np.ndarray: Adjacency matrix.
         """
-        print("Constructing complex graph based on cosine similarity...")
+        print("Constructing graph based on cosine similarity...")
         # Normalize data for cosine similarity
         norm_data = data / np.linalg.norm(data, axis=1, keepdims=True)
         similarity = np.dot(norm_data, norm_data.T)
@@ -146,7 +148,6 @@ class LaplacianEigenmap:
         print("Eigenvalues and eigenvectors computed.")
 
         # Select the first k non-zero eigenvectors (skip the first eigenvector if it's zero)
-        # Typically, the first eigenvalue is zero for connected graphs
         # To avoid numerical issues, consider eigenvalues > 1e-5 as non-zero
         eps = 1e-5
         non_zero_indices = np.where(eigenvalues > eps)[0]
