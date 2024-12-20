@@ -11,7 +11,7 @@ class Graph:
     def __init__(self, n_neighbors=10, mode='simple', similarity_threshold=0.5):
         """
         Initializes the graph for the Laplacian eigenmap. A generalized implementation designed
-        to be flexible for downstream models/modifications.
+        to be adaptable (for downstream models/modifications).
 
         Args:
             n_neighbors (int): Number of neighbors for k-NN graph.
