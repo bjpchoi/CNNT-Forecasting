@@ -157,3 +157,9 @@ class LaplacianEigenmap:
         self.embedding_ = eigenvectors[:, selected_indices]
         print("Laplacian Eigenmap embedding completed.")
         return self.embedding_
+    
+    def save_embedding(self, filepath):
+        if self.embedding_ is None:
+            raise ValueError("No embedding found. Please run fit_transform first.")
+        np.save(filepath, self.embedding_)
+        print(f"Embedding saved to {filepath}.")
