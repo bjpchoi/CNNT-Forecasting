@@ -6,6 +6,18 @@ from scipy.linalg import eigh
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 
+"""
+Laplacian eigenmaps perform a nonlinear dimensionality reduction designed to 
+preserve local structures in high-dimensional data. One common implementation
+can be found via sklearn.manifold's SpectralEmbedding. The following modular
+implementation enables downstream customization and flexibility if needed.
+
+Foundational paper:
+Belkin, Mikhail, and Partha Niyogi. "Laplacian eigenmaps for dimensionality reduction 
+    and data representation." Neural computation 15.6 (2003): 1373-1396.
+
+"""
+
 
 class Graph:
     def __init__(self, n_neighbors=10, mode='simple', similarity_threshold=0.5):
@@ -34,14 +46,18 @@ class Graph:
         Returns:
             np.ndarray: Adjacency matrix.
         """
-        print("Constructing k-NN graph...")
         distances = distance_matrix(data, data)
         np.fill_diagonal(distances, np.inf)
-        knn_indices = np.argsort(distances, axis=1)[:, :self.n_neighbors]
+        num_points = data.shape[0]
+        grid_x, grid_y, _ = np.divmod(np.arange(num_points), int(np.cbrt(num_points)))
+        geo_coords = np.column_stack((grid_x, grid_y))
+        geo_distances = distance_matrix(geo_coords, geo_coords)
+        weighted_distances = distances + geo_distances # for start; can be modified as needed
+    
+        knn_indices = np.argsort(weighted_distances, axis=1)[:, :self.n_neighbors]
         adj = np.zeros((data.shape[0], data.shape[0]), dtype=np.float32)
         for i, neighbors in enumerate(knn_indices):
             adj[i, neighbors] = 1
-        print("k-NN graph constructed.")
         return adj
 
     def construct_complex_graph(self, data):
@@ -55,21 +71,24 @@ class Graph:
         Returns:
             np.ndarray: Adjacency matrix.
         """
-        print("Constructing graph based on cosine similarity...")
-        # Normalize data for cosine similarity
         norm_data = data / np.linalg.norm(data, axis=1, keepdims=True)
         similarity = np.dot(norm_data, norm_data.T)
         similarity[similarity < self.similarity_threshold] = 0
         adj = (similarity > 0).astype(np.float32)
-        # Apply k-NN
+        num_points = data.shape[0]
+        grid_x, grid_y, _ = np.divmod(np.arange(num_points), int(np.cbrt(num_points)))
+        geo_coords = np.column_stack((grid_x, grid_y))
+        geo_distances = distance_matrix(geo_coords, geo_coords)
         distances = distance_matrix(data, data)
         np.fill_diagonal(distances, np.inf)
-        knn_indices = np.argsort(distances, axis=1)[:, :self.n_neighbors]
+        weighted_distances = distances + geo_distances
+    
+        knn_indices = np.argsort(weighted_distances, axis=1)[:, :self.n_neighbors]
         knn_adj = np.zeros_like(adj)
         for i, neighbors in enumerate(knn_indices):
             knn_adj[i, neighbors] = 1
+    
         adj = np.maximum(adj, knn_adj)
-        print("Complex graph constructed.")
         return adj
 
     def build_adjacency_matrix(self, data):
