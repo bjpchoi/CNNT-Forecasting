@@ -10,7 +10,7 @@ from scipy.sparse.csgraph import connected_components
 class Graph:
     def __init__(self, n_neighbors=10, mode='simple', similarity_threshold=0.5):
         """
-        Initializes the Graph for Laplacian Eigenmap. A generalized implementation designed
+        Initializes the graph for the Laplacian eigenmap. A generalized implementation designed
         to be flexible for downstream models/modifications.
 
         Args:
@@ -93,7 +93,7 @@ class Graph:
 class LaplacianEigenmap:
     def __init__(self, n_neighbors=10, n_components=2, mode='simple', similarity_threshold=0.5):
         """
-        Initializes the LaplacianEigenmap.
+        Initializes the Laplacian eigenmap. A starter/example implementation.
 
         Args:
             n_neighbors (int): Number of neighbors for graph construction.
@@ -101,7 +101,7 @@ class LaplacianEigenmap:
             mode (str): 'simple' or 'complex' graph construction.
             similarity_threshold (float): Threshold for similarity in 'complex' mode.
         """
-        assert mode in ['simple', 'complex'], "Mode must be 'simple' or 'complex'"
+        assert mode in ['simple', 'complex'], "mode not supported"
         self.n_neighbors = n_neighbors
         self.n_components = n_components
         self.mode = mode
@@ -122,11 +122,9 @@ class LaplacianEigenmap:
         graph = Graph(n_neighbors=self.n_neighbors, mode=self.mode, similarity_threshold=self.similarity_threshold)
         adj = graph.build_adjacency_matrix(data)
 
-        # Ensure the graph is connected
         n_components, labels = connected_components(csgraph=csr_matrix(adj), directed=False, return_labels=True)
         if n_components > 1:
             print(f"Graph has {n_components} connected components. Merging components to make it connected.")
-            # Connect all components to the first component
             for i in range(1, n_components):
                 idx_first = np.where(labels == 0)[0][0]
                 idx_other = np.where(labels == i)[0][0]
@@ -147,7 +145,7 @@ class LaplacianEigenmap:
         eigenvalues, eigenvectors = eigh(L)
         print("Eigenvalues and eigenvectors computed.")
 
-        # Select the first k non-zero eigenvectors (skip the first eigenvector if it's zero)
+        # Select the first k non-zero eigenvectors
         # To avoid numerical issues, consider eigenvalues > 1e-5 as non-zero
         eps = 1e-5
         non_zero_indices = np.where(eigenvalues > eps)[0]
