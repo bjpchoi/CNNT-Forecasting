@@ -5,9 +5,9 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.linear_model import LinearRegression
 import numpy as np
 
-# =========================
-# Model starter code; fine-tuned as needed.
-# =========================
+# =============================================================
+# Model starter code; fine-tuned as needed. Simple models built for flexibility.
+# =============================================================
 
 class RNNModel(nn.Module):
     def __init__(self, input_channels, output_channels, sample_input, mode='base'):
@@ -24,27 +24,47 @@ class RNNModel(nn.Module):
             self.hidden_size = 256
             self.num_layers = 3
 
-        self.rnn = nn.GRU(
-            input_size=self.input_size,
-            hidden_size=self.hidden_size,
-            num_layers=self.num_layers,
-            batch_first=True
-        )
-        self.fc = nn.Linear(
-            self.hidden_size * sample_input.shape[1] * sample_input.shape[2],
-            output_channels * sample_input.shape[1] * sample_input.shape[2]
-        )
+        if mode in ['standard', 'extended']:
+            self.rnn = nn.GRU(
+                input_size=self.input_size,
+                hidden_size=self.hidden_size,
+                num_layers=self.num_layers,
+                batch_first=True
+            )
+            self.fc = nn.Linear(
+                self.hidden_size,
+                output_channels
+            )
+        else:
+            self.rnn = nn.GRU(
+                input_size=self.input_size,
+                hidden_size=self.hidden_size,
+                num_layers=self.num_layers,
+                batch_first=True
+            )
+            self.fc = nn.Linear(
+                self.hidden_size * sample_input.shape[1] * sample_input.shape[2],
+                output_channels * sample_input.shape[1] * sample_input.shape[2]
+            )
 
     def forward(self, x):
         batch_size = x.size(0)
-        # Shape: (batch_size, height, width, channels)
-        x = x.permute(0, 2, 3, 1)
-        # Shape: (batch_size, seq_length, input_size)
-        x = x.reshape(batch_size, -1, self.input_size)
-        out, _ = self.rnn(x)
-        # Flatten output
-        out = out.reshape(batch_size, -1)
-        out = self.fc(out)
+        if self.mode in ['standard', 'extended']:
+            # Shape: (batch_size, seq_length, channels, height, width)
+            x = x.permute(0, 1, 3, 4, 2)
+            # Shape: (batch_size, seq_length, input_size)
+            x = x.reshape(batch_size, x.size(1), -1)
+            out, _ = self.rnn(x)
+            out = self.fc(out[:, -1, :])
+        else:
+            # Shape: (batch_size, height, width, channels)
+            x = x.permute(0, 2, 3, 1)
+            # Shape: (batch_size, seq_length, input_size)
+            x = x.reshape(batch_size, -1, self.input_size)
+            out, _ = self.rnn(x)
+            # Flatten output
+            out = out.reshape(batch_size, -1)
+            out = self.fc(out)
         return out
 
 
@@ -55,10 +75,13 @@ class MLPModel(nn.Module):
 
         if mode == 'base':
             hidden_layers = [128]
+            self.flatten = True
         elif mode == 'extended':
             hidden_layers = [256, 128]
+            self.flatten = True
         else:
             hidden_layers = [512, 256]
+            self.flatten = True
 
         layers = []
         in_dim = self.input_dim
@@ -67,19 +90,30 @@ class MLPModel(nn.Module):
             layers.append(nn.ReLU())
             in_dim = hidden_dim
 
-        layers.append(
-            nn.Linear(
-                in_dim,
-                output_channels * sample_input.shape[1] * sample_input.shape[2]
+        if mode in ['standard', 'extended']:
+            self.fc = nn.Sequential(*layers, nn.Linear(in_dim, output_channels))
+        else:
+            layers.append(
+                nn.Linear(
+                    in_dim,
+                    output_channels * sample_input.shape[1] * sample_input.shape[2]
+                )
             )
-        )
-        self.fc = nn.Sequential(*layers)
+            self.fc = nn.Sequential(*layers)
 
     def forward(self, x):
         batch_size = x.size(0)
-        # Flatten input
-        x = x.view(batch_size, -1)
-        x = self.fc(x)
+        if self.mode in ['standard', 'extended']:
+            # Shape: (batch_size, seq_length, channels, height, width)
+            x = x.permute(0, 1, 3, 4, 2)
+            # Flatten sequence and spatial dimensions
+            x = x.reshape(batch_size, x.size(1), -1)
+            # Take the last time step
+            x = self.fc(x[:, -1, :])
+        else:
+            # Flatten input
+            x = x.view(batch_size, -1)
+            x = self.fc(x)
         return x
 
 
@@ -101,46 +135,80 @@ class PureTransformerModel(nn.Module):
             num_layers = 6
             num_heads = 16
 
-        self.fc1 = nn.Sequential(
-            nn.Linear(self.input_size, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-        )
-        self.transformer = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(
-                d_model=hidden_dim,
-                nhead=num_heads,
-                dropout=0.1
-            ),
-            num_layers=num_layers
-        )
-        self.fc2 = nn.Linear(
-            hidden_dim,
-            output_channels * sample_input.shape[1] * sample_input.shape[2]
-        )
+        if mode in ['standard', 'extended']:
+            self.fc1 = nn.Linear(self.input_size, hidden_dim)
+            self.transformer = nn.TransformerEncoder(
+                nn.TransformerEncoderLayer(
+                    d_model=hidden_dim,
+                    nhead=num_heads,
+                    dropout=0.1
+                ),
+                num_layers=num_layers
+            )
+            self.fc2 = nn.Linear(
+                hidden_dim,
+                output_channels
+            )
+        else:
+            self.fc1 = nn.Sequential(
+                nn.Linear(self.input_size, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(0.2),
+            )
+            self.transformer = nn.TransformerEncoder(
+                nn.TransformerEncoderLayer(
+                    d_model=hidden_dim,
+                    nhead=num_heads,
+                    dropout=0.1
+                ),
+                num_layers=num_layers
+            )
+            self.fc2 = nn.Linear(
+                hidden_dim,
+                output_channels * sample_input.shape[1] * sample_input.shape[2]
+            )
 
     def forward(self, x):
         batch_size = x.size(0)
-        # Flatten input
-        x = x.view(batch_size, -1)
-        x = self.fc1(x)
-        # Shape: (batch_size, 1, hidden_dim)
-        x = x.unsqueeze(1)
-        x = self.transformer(x)
-        # Shape: (batch_size, hidden_dim)
-        x = x.squeeze(1)
-        x = self.fc2(x)
+        if self.mode in ['standard', 'extended']:
+            # Shape: (batch_size, seq_length, channels, height, width)
+            x = x.permute(0, 1, 3, 4, 2)
+            # Flatten spatial dimensions
+            x = x.reshape(batch_size, x.size(1), -1)
+            x = self.fc1(x)
+            x = self.transformer(x)
+            x = self.fc2(x[:, -1, :])
+        else:
+            # Flatten input
+            x = x.view(batch_size, -1)
+            x = self.fc1(x)
+            # Shape: (batch_size, 1, hidden_dim)
+            x = x.unsqueeze(1)
+            x = self.transformer(x)
+            # Shape: (batch_size, hidden_dim)
+            x = x.squeeze(1)
+            x = self.fc2(x)
         return x
 
 
 class LinearRegressionModel:
-    def __init__(self):
+    def __init__(self, mode='base'):
         self.model = LinearRegression()
+        self.mode = mode
 
     def fit(self, X, y):
+        if self.mode in ['standard', 'extended']:
+            X = X.reshape(X.size(0), -1)
+        else:
+            X = X.view(X.size(0), -1).numpy()
+        y = y.view(y.size(0), -1).numpy()
         self.model.fit(X, y)
 
     def predict(self, X):
+        if self.mode in ['standard', 'extended']:
+            X = X.reshape(X.size(0), -1)
+        else:
+            X = X.view(X.size(0), -1).numpy()
         return self.model.predict(X)
 
 
