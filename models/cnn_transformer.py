@@ -13,34 +13,42 @@ class CNNTransformer(nn.Module):
         self.target_height = target_height
         self.target_width = target_width
 
-        if self.mode == 'standard':
+        if self.mode in ['standard', 'extended']:
             # Define 3D CNN layers for cubes
             self.cnn = nn.Sequential(
                 nn.Conv3d(input_channels, 32, kernel_size=3, padding=1),
                 nn.BatchNorm3d(32),
                 nn.ReLU(),
                 nn.Dropout(0.2),
-
                 nn.Conv3d(32, 64, kernel_size=3, padding=1),
                 nn.BatchNorm3d(64),
                 nn.ReLU(),
                 nn.Dropout(0.2),
-
-                nn.MaxPool3d(2),  # Downsample by a factor of 2 in all dimensions
+                nn.MaxPool3d(2),
             )
-
-            # Additional layers for 'standard' mode
-            self.cnn.add_module('conv3', nn.Conv3d(64, 128, kernel_size=3, padding=1))
-            self.cnn.add_module('bn3', nn.BatchNorm3d(128))
-            self.cnn.add_module('relu3', nn.ReLU())
-            self.cnn.add_module('dropout3', nn.Dropout(0.3))
-            self.cnn.add_module('maxpool2', nn.MaxPool3d(2))
-
-            self.cnn.add_module('conv4', nn.Conv3d(128, 256, kernel_size=3, padding=1))
-            self.cnn.add_module('bn4', nn.BatchNorm3d(256))
-            self.cnn.add_module('relu4', nn.ReLU())
-            self.cnn.add_module('dropout4', nn.Dropout(0.4))
-
+            if self.mode == 'standard':
+                # Additional layers for flexibility
+                self.cnn.add_module('conv3', nn.Conv3d(64, 128, kernel_size=3, padding=1))
+                self.cnn.add_module('bn3', nn.BatchNorm3d(128))
+                self.cnn.add_module('relu3', nn.ReLU())
+                self.cnn.add_module('dropout3', nn.Dropout(0.3))
+                self.cnn.add_module('maxpool2', nn.MaxPool3d(2))
+                self.cnn.add_module('conv4', nn.Conv3d(128, 256, kernel_size=3, padding=1))
+                self.cnn.add_module('bn4', nn.BatchNorm3d(256))
+                self.cnn.add_module('relu4', nn.ReLU())
+                self.cnn.add_module('dropout4', nn.Dropout(0.4))
+                
+            elif self.mode == 'extended':
+                # Additional layers for flexibilty if compute available
+                self.cnn.add_module('conv3', nn.Conv3d(64, 128, kernel_size=3, padding=1))
+                self.cnn.add_module('bn3', nn.BatchNorm3d(128))
+                self.cnn.add_module('relu3', nn.ReLU())
+                self.cnn.add_module('dropout3', nn.Dropout(0.3))
+                self.cnn.add_module('maxpool2', nn.MaxPool3d(2))
+                self.cnn.add_module('conv4', nn.Conv3d(128, 256, kernel_size=3, padding=1))
+                self.cnn.add_module('bn4', nn.BatchNorm3d(256))
+                self.cnn.add_module('relu4', nn.ReLU())
+                self.cnn.add_module('dropout4', nn.Dropout(0.4))
         else:
             # Define 2D CNN layers for images
             self.cnn = nn.Sequential(
@@ -48,12 +56,10 @@ class CNNTransformer(nn.Module):
                 nn.GroupNorm(4, 32),
                 nn.ReLU(),
                 nn.Dropout(0.2),
-
                 nn.Conv2d(32, 64, kernel_size=3, padding=1),
                 nn.GroupNorm(4, 64),
                 nn.ReLU(),
                 nn.Dropout(0.2),
-
                 nn.MaxPool2d(2),
             )
             if self.mode == 'extended': # with extra compute
@@ -71,11 +77,11 @@ class CNNTransformer(nn.Module):
             self.cnn_output_size = cnn_output.view(cnn_output.size(0), -1).size(1)
 
         # Define fully connected layers
-        fc_size = 256 if self.mode == 'standard' else 128 if self.mode == 'base' else 256
+        fc_size = 256 if self.mode in ['standard', 'extended'] else 128 if self.mode == 'base' else 256
         self.fc1 = nn.Sequential(
             nn.Linear(self.cnn_output_size, fc_size),
             nn.ReLU(),
-            nn.Dropout(0.2 if self.mode == 'base' else 0.3 if self.mode == 'extended' else 0.4),
+            nn.Dropout(0.3 if self.mode in ['standard', 'extended'] else 0.2),
         )
 
         # Flexibility for ground-up testing
@@ -92,27 +98,27 @@ class CNNTransformer(nn.Module):
                 nn.TransformerEncoderLayer(d_model=256, nhead=8, dropout=0.3), num_layers=8
             )
 
-        if self.mode == 'standard':
+        if self.mode in ['standard', 'extended']:
             self.fc2 = nn.Linear(fc_size, output_channels * target_depth * target_height * target_width)
         else:
             self.fc2 = nn.Linear(fc_size, output_channels * target_height * target_width)
 
     def forward(self, x):
-        batch_size = x.size(0)
-        assert x.size(1) > 0, "Input tensor must have a positive channel dimension."
-        assert batch_size > 0, "Batch size must be positive."
-
-        x = self.cnn(x)
-        x = x.view(batch_size, -1)
-        x = self.fc1(x)
-        x = x.unsqueeze(1)
-        x = self.transformer(x)
-        x = x.squeeze(1)
-        x = self.fc2(x)
-
-        if self.mode == 'standard':
+        if self.mode in ['standard', 'extended']:
+            batch_size, seq_length, C, D, H, W = x.size()
+            x = x.view(batch_size * seq_length, C, D, H, W)
+            x = self.cnn(x)
+            x = x.view(batch_size, seq_length, -1)
+            x = self.fc1(x)
+            x = self.transformer(x)
+            x = self.fc2(x[:, -1, :])
             x = x.view(batch_size, -1, self.target_depth, self.target_height, self.target_width)
         else:
+            batch_size = x.size(0)
+            x = self.cnn(x)
+            x = x.view(batch_size, -1)
+            x = self.fc1(x)
+            x = self.transformer(x.unsqueeze(1))
+            x = self.fc2(x.squeeze(1))
             x = x.view(batch_size, -1, self.target_height, self.target_width)
-
         return x
