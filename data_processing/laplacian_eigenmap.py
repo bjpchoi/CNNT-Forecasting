@@ -8,7 +8,7 @@ from scipy.sparse.csgraph import connected_components
 
 """
 Laplacian eigenmaps perform a nonlinear dimensionality reduction designed to 
-preserve local structures in high-dimensional data. One common implementation
+preserve local structures in high-dimensional data. A common implementation
 can be found via sklearn.manifold's SpectralEmbedding. The following modular
 implementation enables downstream customization and flexibility if needed.
 
@@ -46,13 +46,14 @@ class Graph:
         Returns:
             np.ndarray: Adjacency matrix.
         """
+        # for start; can be modified as needed
         distances = distance_matrix(data, data)
         np.fill_diagonal(distances, np.inf)
         num_points = data.shape[0]
         grid_x, grid_y, _ = np.divmod(np.arange(num_points), int(np.cbrt(num_points)))
         geo_coords = np.column_stack((grid_x, grid_y))
         geo_distances = distance_matrix(geo_coords, geo_coords)
-        weighted_distances = distances + geo_distances # for start; can be modified as needed
+        weighted_distances = distances + geo_distances 
     
         knn_indices = np.argsort(weighted_distances, axis=1)[:, :self.n_neighbors]
         adj = np.zeros((data.shape[0], data.shape[0]), dtype=np.float32)
