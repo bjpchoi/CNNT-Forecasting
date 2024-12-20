@@ -47,7 +47,7 @@ class HaloTester:
         plt.grid(True)
         plt.show()
     
-    def get_optimal_halo_size(self, minimize=True):
+    def detect_optimal_halo_size(self, minimize=True):
         if not self.results:
             raise ValueError("No results to determine optimal halo size. Run tests first.")
         
