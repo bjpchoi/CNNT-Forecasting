@@ -13,7 +13,6 @@ class GlobalTester:
     A flexible class for performing global evaluation of forecasting models
     across geographic regions using sequences of data cubes. Starter code that can be 
     modified as needed.
-
     """
 
     def __init__(
