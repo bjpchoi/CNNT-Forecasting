@@ -83,10 +83,8 @@ class GlobalTester:
         input_samples = {}
         for var_key, var_info in self.processed_vars.items():
             data_var = var_info['data']
-            dims = data_var.dims  # Assuming 'dims' attribute similar to xarray or similar library
-            # Identify spatial dimensions dynamically (excluding 'time' and potential other non-spatial dims)
+            dims = data_var.dims  
             spatial_dims = [dim for dim in dims if dim not in ['time']]
-            # Determine slice objects based on spatial dimensions
             slices = {}
             for dim in spatial_dims:
                 if dim == 'lat':
