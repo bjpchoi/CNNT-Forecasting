@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-# flexible starter code for CNN-Transformer model
+# simple/flexible starter code for CNN-Transformer model
 class CNNTransformer(nn.Module):
     def __init__(self, a, b, c, d, e, f, g='base'):
         """
