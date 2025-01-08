@@ -1,2 +1,2 @@
 # GEOS ML Forecasting Repo
-AI model repository for climate forecasting. See writeup for more details.
+AI model repository for climate forecasting. See Project Writeup for more details.
